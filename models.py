@@ -32,6 +32,13 @@ class SuspiciousImport:
     address: str
 
 @dataclass
+class EvasionInfo:
+    uses_anti_debug: bool
+    anti_debug_apis_found: List[str]
+    uses_anti_vm: bool
+    anti_vm_strings_found: List[str]
+
+@dataclass
 class AnalysisReport:
     file: str
     risk_assessment: RiskAssessment
@@ -41,6 +48,7 @@ class AnalysisReport:
     # NEW FIELDS:
     sections: List[SectionInfo] 
     packer_info: PackerDetection
+    evasion_info: EvasionInfo    # NEW FIELD
 
     def to_dict(self) -> dict:
         """Converts the dataclass hierarchy into a JSON-serializable dictionary."""
