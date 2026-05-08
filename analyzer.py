@@ -9,7 +9,7 @@ from typing import List, Dict, Any
 from errors import BinaryLoadError
 from config import API_CATEGORIES, CATEGORY_SCORES, KNOWN_PACKERS, ANTI_DEBUG_APIS, ANTI_VM_STRINGS
 from utils import filter_iocs, detect_base64, brute_force_xor, calculate_shannon_entropy
-from models import AnalysisReport, RiskAssessment, IOCs, Obfuscation, XorHit, SuspiciousImport, SectionInfo, PackerDetection, EvasionInfo, Capability, InterestingFunction
+from models import AnalysisReport, RiskAssessment, IOCs, Obfuscation, XorHit, SuspiciousImport, SectionInfo, PackerDetection, EvasionInfo, Capability, InterestingFunction, StringReference
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +39,7 @@ class MalwareAnalyzer:
         """Extracts all strings from the BinaryView."""
         return [s.value for s in self.bv.strings]
 
-    def trace_string_references(self, target_string: str) -> List[Dict[str, str]]:
+    def trace_string_references(self, target_string: str) -> List[StringReference]:
         """Finds cross-references to a specific string."""
         references = []
         for s in self.bv.strings:
@@ -50,21 +50,21 @@ class MalwareAnalyzer:
                 for ref in code_refs:
                     func = ref.function
                     if func:
-                        references.append({
-                            "type": "code",
-                            "string": s.value,
-                            "address": hex(s.start),
-                            "function": func.name,
-                            "ref_address": hex(ref.address)
-                        })
+                        references.append(StringReference(
+                            string_value=s.value,
+                            string_address=hex(s.start),
+                            ref_type="code",
+                            ref_address=hex(ref.address),
+                            referencing_function=func.name
+                        ))
 
                 for ref in data_refs:
-                    references.append({
-                        "type": "data",
-                        "string": s.value,
-                        "address": hex(s.start),
-                        "ref_address": hex(ref.address)
-                    })
+                    references.append(StringReference(
+                        string_value=s.value,
+                        string_address=hex(s.start),
+                        ref_type="data",
+                        ref_address=hex(ref.address)
+                    ))
         return references
 
     def analyze_imports(self) -> List[SuspiciousImport]:
@@ -259,13 +259,16 @@ class MalwareAnalyzer:
             if score > 0:
                 # Deduplicate reasons to keep the report clean
                 unique_reasons = list(set(reasons))
+
+                callers = [caller.name for caller in func.callers]
                 
                 scored_functions.append(InterestingFunction(
                     name=func.name,
                     address=hex(func.start),
                     suspicion_score=score,
                     reasons=unique_reasons,
-                    instruction_count=len(list(func.hlil.instructions)) if func.hlil else 0
+                    instruction_count=len(list(func.hlil.instructions)) if func.hlil else 0,
+                    called_by=callers
                 ))
 
         # Sort the functions by score (highest first)
@@ -325,6 +328,14 @@ class MalwareAnalyzer:
         logger.info("Scoring and Ranking Internal Functions...")
         top_functions = self.rank_suspicious_functions()
 
+        # NEW: Trace where our IOCs are used in the assembly!
+        logger.info("Tracing IOC Cross-References...")
+        ioc_refs = []
+        for url in urls:
+            ioc_refs.extend(self.trace_string_references(url))
+        for ip in ips:
+            ioc_refs.extend(self.trace_string_references(ip))
+
         return AnalysisReport(
             file=self.target_path,
             risk_assessment=risk,
@@ -338,5 +349,6 @@ class MalwareAnalyzer:
             packer_info=packer_info,
             evasion_info=evasion,
             capabilities=capabilities,     # NEW
-            top_suspicious_functions=top_functions  # NEW
+            top_suspicious_functions=top_functions,  # NEW
+            ioc_references=ioc_refs
         )

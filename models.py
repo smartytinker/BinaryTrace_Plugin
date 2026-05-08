@@ -46,12 +46,21 @@ class Capability:
     evidence: List[str]  # e.g., the specific APIs that triggered this capability
 
 @dataclass
+class StringReference:
+    string_value: str
+    string_address: str
+    ref_type: str
+    ref_address: str
+    referencing_function: str = "Unknown"
+
+@dataclass
 class InterestingFunction:
     name: str
     address: str
     suspicion_score: int
     reasons: List[str]
     instruction_count: int
+    called_by: List[str]
 
 @dataclass
 class AnalysisReport:
@@ -66,6 +75,7 @@ class AnalysisReport:
     evasion_info: EvasionInfo    # NEW FIELD
     capabilities: List[Capability]    # NEW FIELD
     top_suspicious_functions: List[InterestingFunction] # NEW FIELD
+    ioc_references: List[StringReference]
 
     def to_dict(self) -> dict:
         """Converts the dataclass hierarchy into a JSON-serializable dictionary."""
