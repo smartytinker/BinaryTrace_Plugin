@@ -9,7 +9,7 @@ from typing import List, Dict, Any
 from errors import BinaryLoadError
 from config import API_CATEGORIES, CATEGORY_SCORES, KNOWN_PACKERS, ANTI_DEBUG_APIS, ANTI_VM_STRINGS
 from utils import filter_iocs, detect_base64, brute_force_xor, calculate_shannon_entropy
-from models import AnalysisReport, RiskAssessment, IOCs, Obfuscation, XorHit, SuspiciousImport, SectionInfo, PackerDetection, EvasionInfo
+from models import AnalysisReport, RiskAssessment, IOCs, Obfuscation, XorHit, SuspiciousImport, SectionInfo, PackerDetection, EvasionInfo, Capability
 
 logger = logging.getLogger(__name__)
 
@@ -178,6 +178,41 @@ class MalwareAnalyzer:
                 reasons.append(f"{category} APIs detected")
 
         return RiskAssessment(score=score, reasons=reasons)
+    
+    def map_capabilities(self, imports: List[SuspiciousImport], evasion: EvasionInfo) -> List[Capability]:
+        """Maps findings to MITRE ATT&CK techniques."""
+        capabilities = []
+        mapping_tracker = {}
+
+        # 1. Map imported APIs to MITRE Categories
+        for imp in imports:
+            if imp.category in MITRE_MAPPING:
+                # Group APIs by category to serve as evidence
+                if imp.category not in mapping_tracker:
+                    mapping_tracker[imp.category] = []
+                mapping_tracker[imp.category].append(imp.api)
+
+        # Build the capability objects for Imports
+        for category, apis in mapping_tracker.items():
+            mitre_info = MITRE_MAPPING[category]
+            capabilities.append(Capability(
+                technique_id=mitre_info["id"],
+                tactic=mitre_info["tactic"],
+                description=mitre_info["description"],
+                evidence=apis
+            ))
+
+        # 2. Add Evasion capabilities if detected
+        if evasion.uses_anti_debug or evasion.uses_anti_vm:
+            evidence = evasion.anti_debug_apis_found + evasion.anti_vm_strings_found
+            capabilities.append(Capability(
+                technique_id="T1497",
+                tactic="Defense Evasion",
+                description="Virtualization/Sandbox Evasion",
+                evidence=evidence
+            ))
+
+        return capabilities
 
     def run_full_analysis(self) -> AnalysisReport:
         """Orchestrates the full analysis pipeline."""
@@ -224,6 +259,9 @@ class MalwareAnalyzer:
         # Cap score at 100
         risk.score = min(risk.score, 100)
 
+        logger.info("Mapping MITRE ATT&CK Capabilities...")
+        capabilities = self.map_capabilities(suspicious_imports, evasion)
+
         return AnalysisReport(
             file=self.target_path,
             risk_assessment=risk,
@@ -235,5 +273,6 @@ class MalwareAnalyzer:
             suspicious_imports=suspicious_imports,
             sections=sections,
             packer_info=packer_info,
-            evasion_info=evasion
+            evasion_info=evasion,
+            capabilities=capabilities     # NEW
         )

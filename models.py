@@ -39,6 +39,13 @@ class EvasionInfo:
     anti_vm_strings_found: List[str]
 
 @dataclass
+class Capability:
+    technique_id: str
+    tactic: str
+    description: str
+    evidence: List[str]  # e.g., the specific APIs that triggered this capability
+
+@dataclass
 class AnalysisReport:
     file: str
     risk_assessment: RiskAssessment
@@ -49,6 +56,7 @@ class AnalysisReport:
     sections: List[SectionInfo] 
     packer_info: PackerDetection
     evasion_info: EvasionInfo    # NEW FIELD
+    capabilities: List[Capability]    # NEW FIELD
 
     def to_dict(self) -> dict:
         """Converts the dataclass hierarchy into a JSON-serializable dictionary."""
