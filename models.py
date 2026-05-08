@@ -63,6 +63,19 @@ class InterestingFunction:
     called_by: List[str]
 
 @dataclass
+class YaraMatch:
+    rule_name: str
+    description: str
+
+@dataclass
+class ThreatIntelResult:
+    file_hash: str
+    vt_positives: int
+    vt_total: int
+    malicious_ips: Dict[str, int] # IP -> Confidence Score
+    yara_matches: List[YaraMatch]
+
+@dataclass
 class AnalysisReport:
     file: str
     risk_assessment: RiskAssessment
@@ -76,6 +89,7 @@ class AnalysisReport:
     capabilities: List[Capability]    # NEW FIELD
     top_suspicious_functions: List[InterestingFunction] # NEW FIELD
     ioc_references: List[StringReference]
+    threat_intel: ThreatIntelResult
 
     def to_dict(self) -> dict:
         """Converts the dataclass hierarchy into a JSON-serializable dictionary."""

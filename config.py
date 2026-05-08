@@ -40,6 +40,7 @@ try:
     ANTI_DEBUG_APIS = _rules.get("anti_debug_apis", [])    # NEW
     ANTI_VM_STRINGS = _rules.get("anti_vm_strings", [])    # NEW
     MITRE_MAPPING = _rules.get("mitre_mapping", {})
+    THREAT_INTEL_CONFIG = _rules.get("threat_intel", {})
 except ConfigurationError as e:
     # If config fails to load, we crash early before doing any analysis
     print(f"CRITICAL: {e}")

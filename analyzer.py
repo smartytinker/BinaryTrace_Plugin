@@ -5,11 +5,11 @@ Core Binary Ninja analysis module.
 import logging
 import binaryninja as bn
 from typing import List, Dict, Any
-
+from threat_intel import ThreatIntelEngine
 from errors import BinaryLoadError
 from config import API_CATEGORIES, CATEGORY_SCORES, KNOWN_PACKERS, ANTI_DEBUG_APIS, ANTI_VM_STRINGS
 from utils import filter_iocs, detect_base64, brute_force_xor, calculate_shannon_entropy
-from models import AnalysisReport, RiskAssessment, IOCs, Obfuscation, XorHit, SuspiciousImport, SectionInfo, PackerDetection, EvasionInfo, Capability, InterestingFunction, StringReference
+from models import AnalysisReport, RiskAssessment, IOCs, Obfuscation, XorHit, SuspiciousImport, SectionInfo, PackerDetection, EvasionInfo, Capability, InterestingFunction, StringReference, ThreatIntelResult
 
 logger = logging.getLogger(__name__)
 
@@ -336,6 +336,10 @@ class MalwareAnalyzer:
         for ip in ips:
             ioc_refs.extend(self.trace_string_references(ip))
 
+        logger.info("Gathering External Threat Intelligence...")
+        ti_engine = ThreatIntelEngine(self.target_path)
+        threat_intel = ti_engine.gather_intelligence(ips)
+
         return AnalysisReport(
             file=self.target_path,
             risk_assessment=risk,
@@ -350,5 +354,6 @@ class MalwareAnalyzer:
             evasion_info=evasion,
             capabilities=capabilities,     # NEW
             top_suspicious_functions=top_functions,  # NEW
-            ioc_references=ioc_refs
+            ioc_references=ioc_refs,
+            threat_intel=threat_intel
         )
