@@ -7,6 +7,8 @@ import json
 import logging
 import sys
 from analyzer import MalwareAnalyzer
+from errors import AnalyzerBaseError
+
 
 def setup_logging(debug: bool = False):
     """Configures console logging."""
@@ -35,14 +37,17 @@ def main():
             # Output results
             if args.output:
                 with open(args.output, "w") as f:
-                    json.dump(report, f, indent=4)
+                    json.dump(report.to_dict(), f, indent=4) # NEW: added .to_dict()
                 logger.info(f"Report saved to {args.output}")
             else:
                 print("\n--- ANALYSIS REPORT ---")
-                print(json.dumps(report, indent=4))
+                print(json.dumps(report.to_dict(), indent=4)) # NEW: added .to_dict()
 
+    except AnalyzerBaseError as e:
+        logger.error(f"Analysis aborted: {e}")
+        sys.exit(1)
     except Exception as e:
-        logger.error(f"Analysis failed: {e}", exc_info=args.debug)
+        logger.error(f"An unexpected critical error occurred: {e}", exc_info=args.debug)
         sys.exit(1)
 
 if __name__ == "__main__":

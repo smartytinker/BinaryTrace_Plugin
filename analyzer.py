@@ -7,6 +7,8 @@ import binaryninja as bn
 from typing import List, Dict, Any
 from config import API_CATEGORIES, CATEGORY_SCORES
 from utils import filter_iocs, detect_base64, brute_force_xor
+from models import AnalysisReport, RiskAssessment, IOCs, Obfuscation, XorHit, SuspiciousImport
+from errors import BinaryLoadError
 
 logger = logging.getLogger(__name__)
 
@@ -17,10 +19,15 @@ class MalwareAnalyzer:
 
     def __enter__(self):
         logger.info(f"Loading binary into Binary Ninja: {self.target_path}")
-        # Setting update_analysis=True ensures functions and symbols are resolved
-        self.bv = bn.load(self.target_path, update_analysis=True)
+        try:
+            self.bv = bn.load(self.target_path, update_analysis=True)
+        except Exception as e:
+            raise BinaryLoadError(f"Binary Ninja exception: {e}")
+
         if self.bv is None:
-            raise RuntimeError(f"Binary Ninja failed to load: {self.target_path}")
+            raise BinaryLoadError(f"File not found or format unsupported: {self.target_path}")
+            
+        self.bv.update_analysis_and_wait() 
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -59,8 +66,8 @@ class MalwareAnalyzer:
                     })
         return references
 
-    def analyze_imports(self) -> List[Dict[str, str]]:
-        """Maps binary imports to suspicious API categories."""
+    def analyze_imports(self) -> List[SuspiciousImport]:
+        """Maps binary imports to suspicious API categories using typed models."""
         suspicious_imports = []
         seen = set()
 
@@ -74,14 +81,14 @@ class MalwareAnalyzer:
             for category, apis in API_CATEGORIES.items():
                 for api in apis:
                     if api.lower() in name.lower():
-                        suspicious_imports.append({
-                            "category": category,
-                            "api": name,
-                            "address": hex(symbol.address)
-                        })
+                        suspicious_imports.append(SuspiciousImport(
+                            category=category,
+                            api=name,
+                            address=hex(symbol.address)
+                        ))
         return suspicious_imports
 
-    def calculate_risk_score(self, urls: List[str], xor_hits: List[Any], imports: List[Dict[str, str]]) -> Dict[str, Any]:
+    def calculate_risk_score(self, urls: List[str], xor_hits: List[XorHit], imports: List[SuspiciousImport]) -> RiskAssessment:
         """Calculates a risk score out of 100 based on found artifacts."""
         score = 0
         reasons = []
@@ -96,18 +103,15 @@ class MalwareAnalyzer:
 
         seen_categories = set()
         for imp in imports:
-            category = imp["category"]
+            category = imp.category
             if category not in seen_categories:
                 seen_categories.add(category)
                 score += CATEGORY_SCORES.get(category, 0)
                 reasons.append(f"{category} APIs detected")
 
-        return {
-            "score": min(score, 100),
-            "reasons": reasons
-        }
+        return RiskAssessment(score=min(score, 100), reasons=reasons)
 
-    def run_full_analysis(self) -> Dict[str, Any]:
+    def run_full_analysis(self) -> AnalysisReport:
         """Orchestrates the full analysis pipeline."""
         logger.info("Extracting strings...")
         strings = self.extract_strings()
@@ -123,7 +127,9 @@ class MalwareAnalyzer:
         for s in strings:
             hits = brute_force_xor(s)
             if hits:
-                xor_results.extend(hits)
+                # Convert raw dicts from utils into typed XorHit objects
+                for hit in hits:
+                    xor_results.append(XorHit(key=hit["key"], decoded=hit["decoded"]))
 
         logger.info("Analyzing Imports...")
         suspicious_imports = self.analyze_imports()
@@ -131,13 +137,13 @@ class MalwareAnalyzer:
         logger.info("Calculating Risk Score...")
         risk = self.calculate_risk_score(urls, xor_results, suspicious_imports)
 
-        return {
-            "file": self.target_path,
-            "risk_assessment": risk,
-            "iocs": {"urls": urls, "ips": ips},
-            "obfuscation": {
-                "base64_candidates_count": len(b64_candidates),
-                "xor_decoded": xor_results
-            },
-            "suspicious_imports": suspicious_imports
-        }
+        return AnalysisReport(
+            file=self.target_path,
+            risk_assessment=risk,
+            iocs=IOCs(urls=urls, ips=ips),
+            obfuscation=Obfuscation(
+                base64_candidates_count=len(b64_candidates),
+                xor_decoded=xor_results
+            ),
+            suspicious_imports=suspicious_imports
+        )

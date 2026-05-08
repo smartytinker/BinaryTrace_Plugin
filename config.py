@@ -1,15 +1,17 @@
 """
 config.py
-Static configurations, regex patterns, and API classifications.
+Dynamic configuration and regex patterns.
 """
 import re
+import json
+import os
+from errors import ConfigurationError
 
-# Regex Patterns
+# Static Regex Patterns
 URL_PATTERN = re.compile(r"http[s]?://[^\s]+")
 IP_PATTERN = re.compile(r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b")
 BASE64_PATTERN = re.compile(r"^[A-Za-z0-9+/=]+$")
 
-# Patterns to look for in decoded XOR strings
 XOR_SEARCH_PATTERNS = [
     r"http[s]?://[^\s]+",
     r"[a-zA-Z0-9_-]+\.com",
@@ -18,22 +20,23 @@ XOR_SEARCH_PATTERNS = [
     r"socket"
 ]
 
-# Suspicious Windows APIs categorized by capability
-API_CATEGORIES = {
-    "Keylogging": ["GetAsyncKeyState", "SetWindowsHookEx"],
-    "Process Injection": ["CreateRemoteThread", "WriteProcessMemory", "VirtualAllocEx", "OpenProcess"],
-    "Networking": ["InternetOpen", "InternetOpenUrl", "URLDownloadToFile", "socket", "connect"],
-    "Persistence": ["RegSetValueEx", "CreateService"],
-    "Command Execution": ["WinExec", "ShellExecute", "CreateProcess"],
-    "Cryptography": ["CryptAcquireContext", "CryptEncrypt", "CryptDecrypt"]
-}
+def load_rules(filepath: str = "rules.json") -> dict:
+    """Loads external analysis rules and signatures."""
+    if not os.path.exists(filepath):
+        raise ConfigurationError(f"Missing configuration file: {filepath}")
+    
+    try:
+        with open(filepath, "r") as f:
+            return json.load(f)
+    except json.JSONDecodeError as e:
+        raise ConfigurationError(f"Malformed JSON in {filepath}: {e}")
 
-# Risk scoring weights
-CATEGORY_SCORES = {
-    "Networking": 10,
-    "Command Execution": 25,
-    "Process Injection": 30,
-    "Persistence": 20,
-    "Keylogging": 35,
-    "Cryptography": 15
-}
+# Load the rules globally so analyzer.py can still import them easily
+try:
+    _rules = load_rules()
+    API_CATEGORIES = _rules.get("api_categories", {})
+    CATEGORY_SCORES = _rules.get("category_scores", {})
+except ConfigurationError as e:
+    # If config fails to load, we crash early before doing any analysis
+    print(f"CRITICAL: {e}")
+    exit(1)
