@@ -9,6 +9,9 @@ from config import API_CATEGORIES, CATEGORY_SCORES
 from utils import filter_iocs, detect_base64, brute_force_xor
 from models import AnalysisReport, RiskAssessment, IOCs, Obfuscation, XorHit, SuspiciousImport
 from errors import BinaryLoadError
+from config import API_CATEGORIES, CATEGORY_SCORES, KNOWN_PACKERS
+from utils import filter_iocs, detect_base64, brute_force_xor, calculate_shannon_entropy
+from models import AnalysisReport, RiskAssessment, IOCs, Obfuscation, XorHit, SuspiciousImport, SectionInfo, PackerDetection
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +19,49 @@ class MalwareAnalyzer:
     def __init__(self, target_path: str):
         self.target_path = target_path
         self.bv = None
+
+    def analyze_sections(self) -> List[SectionInfo]:
+        """Calculates entropy for all sections in the binary."""
+        section_infos = []
+        for section_name, section in self.bv.sections.items():
+            # Read the raw bytes of the section
+            data = self.bv.read(section.start, section.end - section.start)
+            entropy = calculate_shannon_entropy(data)
+            
+            section_infos.append(SectionInfo(
+                name=section_name,
+                size=len(data),
+                entropy=entropy,
+                is_highly_entropic=entropy >= 7.0
+            ))
+        return section_infos
+
+    def detect_packer(self, sections: List[SectionInfo]) -> PackerDetection:
+        """Determines if the binary is packed based on section names and entropy."""
+        is_packed = False
+        suspicious_sections = []
+        suspected_packer = "None"
+
+        # Check for highly entropic sections
+        for sec in sections:
+            if sec.is_highly_entropic:
+                is_packed = True
+                suspicious_sections.append(sec.name)
+
+        # Check section names against known packer signatures
+        for sec in sections:
+            for packer_name, signatures in KNOWN_PACKERS.items():
+                if sec.name in signatures or sec.name.upper() in signatures:
+                    is_packed = True
+                    suspected_packer = packer_name
+                    if sec.name not in suspicious_sections:
+                        suspicious_sections.append(sec.name)
+
+        return PackerDetection(
+            is_packed=is_packed,
+            suspicious_sections=suspicious_sections,
+            suspected_packer=suspected_packer
+        )
 
     def __enter__(self):
         logger.info(f"Loading binary into Binary Ninja: {self.target_path}")
@@ -110,6 +156,8 @@ class MalwareAnalyzer:
                 reasons.append(f"{category} APIs detected")
 
         return RiskAssessment(score=min(score, 100), reasons=reasons)
+    
+    
 
     def run_full_analysis(self) -> AnalysisReport:
         """Orchestrates the full analysis pipeline."""
@@ -133,6 +181,31 @@ class MalwareAnalyzer:
 
         logger.info("Analyzing Imports...")
         suspicious_imports = self.analyze_imports()
+
+        logger.info("Analyzing Sections & Entropy...")
+        sections = self.analyze_sections()
+        packer_info = self.detect_packer(sections)
+
+        logger.info("Calculating Risk Score...")
+        risk = self.calculate_risk_score(urls, xor_results, suspicious_imports)
+        
+        # If it's packed, add a massive penalty to the risk score!
+        if packer_info.is_packed:
+            risk.score = min(risk.score + 40, 100)
+            risk.reasons.append(f"Binary is likely packed (Suspected: {packer_info.suspected_packer})")
+
+        return AnalysisReport(
+            file=self.target_path,
+            risk_assessment=risk,
+            iocs=IOCs(urls=urls, ips=ips),
+            obfuscation=Obfuscation(
+                base64_candidates_count=len(b64_candidates),
+                xor_decoded=xor_results
+            ),
+            suspicious_imports=suspicious_imports,
+            sections=sections,          # NEW
+            packer_info=packer_info     # NEW
+        )
 
         logger.info("Calculating Risk Score...")
         risk = self.calculate_risk_score(urls, xor_results, suspicious_imports)

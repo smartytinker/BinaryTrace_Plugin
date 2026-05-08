@@ -38,7 +38,23 @@ class AnalysisReport:
     iocs: IOCs
     obfuscation: Obfuscation
     suspicious_imports: List[SuspiciousImport]
+    # NEW FIELDS:
+    sections: List[SectionInfo] 
+    packer_info: PackerDetection
 
     def to_dict(self) -> dict:
         """Converts the dataclass hierarchy into a JSON-serializable dictionary."""
         return asdict(self)
+
+@dataclass
+class SectionInfo:
+    name: str
+    size: int
+    entropy: float
+    is_highly_entropic: bool
+
+@dataclass
+class PackerDetection:
+    is_packed: bool
+    suspicious_sections: List[str]
+    suspected_packer: str

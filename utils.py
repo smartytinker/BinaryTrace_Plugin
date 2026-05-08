@@ -7,8 +7,25 @@ import logging
 from typing import List, Tuple, Dict, Any, Optional
 from config import URL_PATTERN, IP_PATTERN, BASE64_PATTERN, XOR_SEARCH_PATTERNS
 import re
+import math
+from collections import Counter
 
 logger = logging.getLogger(__name__)
+
+def calculate_shannon_entropy(data: bytes) -> float:
+    """Calculates the Shannon entropy of a byte array."""
+    if not data:
+        return 0.0
+    
+    entropy = 0.0
+    length = len(data)
+    occurrences = Counter(data)
+
+    for count in occurrences.values():
+        probability = count / length
+        entropy -= probability * math.log2(probability)
+
+    return round(entropy, 2)
 
 def filter_iocs(strings: List[str]) -> Tuple[List[str], List[str]]:
     """Extracts URLs and IPs from a list of strings."""

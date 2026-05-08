@@ -36,6 +36,7 @@ try:
     _rules = load_rules()
     API_CATEGORIES = _rules.get("api_categories", {})
     CATEGORY_SCORES = _rules.get("category_scores", {})
+    KNOWN_PACKERS = _rules.get("known_packers", {})
 except ConfigurationError as e:
     # If config fails to load, we crash early before doing any analysis
     print(f"CRITICAL: {e}")
