@@ -1,0 +1,23 @@
+# Ignore executable and binary files (Malware samples)
+*.exe
+*.dll
+*.bin
+*.elf
+*.macho
+
+# Ignore Binary Ninja database files
+*.bndb
+
+# Ignore analysis outputs and reports
+*.json
+*.txt
+*.csv
+*.log
+
+# Standard Python ignores
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
