@@ -9,7 +9,7 @@ from typing import List, Dict, Any
 from errors import BinaryLoadError
 from config import API_CATEGORIES, CATEGORY_SCORES, KNOWN_PACKERS, ANTI_DEBUG_APIS, ANTI_VM_STRINGS
 from utils import filter_iocs, detect_base64, brute_force_xor, calculate_shannon_entropy
-from models import AnalysisReport, RiskAssessment, IOCs, Obfuscation, XorHit, SuspiciousImport, SectionInfo, PackerDetection, EvasionInfo, Capability
+from models import AnalysisReport, RiskAssessment, IOCs, Obfuscation, XorHit, SuspiciousImport, SectionInfo, PackerDetection, EvasionInfo, Capability, InterestingFunction
 
 logger = logging.getLogger(__name__)
 
@@ -213,6 +213,66 @@ class MalwareAnalyzer:
             ))
 
         return capabilities
+    
+    def rank_suspicious_functions(self) -> List[InterestingFunction]:
+        """Analyzes all functions to find decryption routines and malicious behavior."""
+        scored_functions = []
+
+        for func in self.bv.functions:
+            # Skip library/imported functions; we only care about the malware's own code
+            if func.symbol.type.name == 'ImportedFunctionSymbol':
+                continue
+
+            score = 0
+            reasons = []
+
+            # 1. Check for high complexity (Indicator of Encryption/Decryption algorithms)
+            # Malware authors use complex math loops to decrypt payloads
+            if len(func.basic_blocks) > 20:
+                score += 15
+                reasons.append("High Cyclomatic Complexity (Possible crypto/decryption routine)")
+
+            # 2. Check what other functions this function calls
+            for callee in func.callees:
+                for category, apis in API_CATEGORIES.items():
+                    for api in apis:
+                        if api.lower() in callee.name.lower():
+                            # Award points based on the severity of the API
+                            api_score = CATEGORY_SCORES.get(category, 10)
+                            score += api_score
+                            reasons.append(f"Calls {category} API: {callee.name}")
+
+            # 3. Check for heavy XOR usage in HLIL (High-Level IL)
+            # Binary Ninja lifts assembly to C-like code (HLIL). We can scan it easily!
+            if func.hlil:
+                xor_count = 0
+                for instruction in func.hlil.instructions:
+                    # Look for XOR operations in the intermediate language
+                    if instruction.operation == bn.HighLevelILOperation.HLIL_XOR:
+                        xor_count += 1
+                
+                if xor_count > 5:
+                    score += 20
+                    reasons.append(f"Heavy XOR usage detected ({xor_count} operations)")
+
+            # If the function hit any of our heuristics, save it
+            if score > 0:
+                # Deduplicate reasons to keep the report clean
+                unique_reasons = list(set(reasons))
+                
+                scored_functions.append(InterestingFunction(
+                    name=func.name,
+                    address=hex(func.start),
+                    suspicion_score=score,
+                    reasons=unique_reasons,
+                    instruction_count=len(list(func.hlil.instructions)) if func.hlil else 0
+                ))
+
+        # Sort the functions by score (highest first)
+        scored_functions.sort(key=lambda x: x.suspicion_score, reverse=True)
+
+        # Return only the Top 5 most dangerous functions to avoid overwhelming the analyst
+        return scored_functions[:5]
 
     def run_full_analysis(self) -> AnalysisReport:
         """Orchestrates the full analysis pipeline."""
@@ -262,6 +322,9 @@ class MalwareAnalyzer:
         logger.info("Mapping MITRE ATT&CK Capabilities...")
         capabilities = self.map_capabilities(suspicious_imports, evasion)
 
+        logger.info("Scoring and Ranking Internal Functions...")
+        top_functions = self.rank_suspicious_functions()
+
         return AnalysisReport(
             file=self.target_path,
             risk_assessment=risk,
@@ -274,5 +337,6 @@ class MalwareAnalyzer:
             sections=sections,
             packer_info=packer_info,
             evasion_info=evasion,
-            capabilities=capabilities     # NEW
+            capabilities=capabilities,     # NEW
+            top_suspicious_functions=top_functions  # NEW
         )
