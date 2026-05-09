@@ -124,3 +124,30 @@ class DatabaseManager:
             logger.error(f"Failed to fetch report from database: {e}")
             
         return None
+    
+    def get_dashboard_stats(self) -> dict:
+        """Calculates global metrics for the web dashboard."""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                # Total samples and average risk
+                cursor.execute("SELECT COUNT(*), AVG(risk_score) FROM samples")
+                total, avg_score = cursor.fetchone()
+
+                # Critical samples count
+                cursor.execute("SELECT COUNT(*) FROM samples WHERE risk_score >= 75")
+                critical_count = cursor.fetchone()[0]
+
+                # Top 5 most recent scans
+                cursor.execute("SELECT file_hash, file_name, risk_score, timestamp FROM samples ORDER BY timestamp DESC LIMIT 5")
+                recent = [{"file_hash": r[0], "file_name": r[1], "risk_score": r[2], "timestamp": r[3]} for r in cursor.fetchall()]
+
+                return {
+                    "total_samples": total or 0,
+                    "average_risk": round(avg_score or 0, 1),
+                    "critical_samples": critical_count or 0,
+                    "recent_activity": recent
+                }
+        except Exception as e:
+            logger.error(f"Failed to fetch stats: {e}")
+            return {"total_samples": 0, "average_risk": 0, "critical_samples": 0, "recent_activity": []}

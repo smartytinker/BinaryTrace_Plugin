@@ -7,7 +7,7 @@ import binaryninja as bn
 from typing import List, Dict, Any
 from threat_intel import ThreatIntelEngine
 from errors import BinaryLoadError
-from config import API_CATEGORIES, CATEGORY_SCORES, KNOWN_PACKERS, ANTI_DEBUG_APIS, ANTI_VM_STRINGS
+from config import API_CATEGORIES, CATEGORY_SCORES, KNOWN_PACKERS, ANTI_DEBUG_APIS, ANTI_VM_STRINGS, MITRE_MAPPING
 from utils import filter_iocs, detect_base64, brute_force_xor, calculate_shannon_entropy
 from models import AnalysisReport, RiskAssessment, IOCs, Obfuscation, XorHit, SuspiciousImport, SectionInfo, PackerDetection, EvasionInfo, Capability, InterestingFunction, StringReference, ThreatIntelResult
 
@@ -72,7 +72,7 @@ class MalwareAnalyzer:
                         string_value=s.value,
                         string_address=hex(s.start),
                         ref_type="data",
-                        ref_address=hex(ref.address)
+                        ref_address=hex(ref) # FIX: ref is already an int!
                     ))
         return references
 

@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend.Dockerfile
+    container_name: triage_api
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount your local database directly into the container!
+      # This means when your local Binary Ninja updates the DB, the API sees it instantly.
+      - ./malware_history.db:/app/malware_history.db
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: triage_ui
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped

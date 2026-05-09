@@ -35,6 +35,8 @@ app.add_middleware(
     allow_origins=[
         "http://127.0.0.1:5173",
         "http://localhost:5173",
+        "http://localhost",
+        "http://127.0.0.1"
     ],
     allow_credentials=False,
     allow_methods=["GET", "OPTIONS"],
@@ -109,6 +111,11 @@ def get_iocs(file_hash: str):
         raise HTTPException(status_code=404, detail="Sample not found in database.")
     report = db.get_report(file_hash)
     return {"file_hash": file_hash, "urls": report.iocs.urls, "ips": report.iocs.ips}
+
+@app.get("/stats", tags=["Dashboard"])
+def get_global_stats():
+    """Fetches global database statistics for the homepage dashboard."""
+    return db.get_dashboard_stats()
 
 if __name__ == "__main__":
     uvicorn.run("api:app", host="127.0.0.1", port=8000, reload=True)
