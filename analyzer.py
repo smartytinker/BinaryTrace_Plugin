@@ -14,12 +14,19 @@ from models import AnalysisReport, RiskAssessment, IOCs, Obfuscation, XorHit, Su
 logger = logging.getLogger(__name__)
 
 class MalwareAnalyzer:
-    def __init__(self, target_path: str):
-        self.target_path = target_path
-        self.bv = None
+    def __init__(self, target_path: str = None, bv: bn.BinaryView = None):
+        """Initializes the analyzer. Accepts either a file path (headless) or an open BinaryView (GUI)."""
+        self.target_path = target_path or (bv.file.filename if bv else "Unknown")
+        self.bv = bv
+        self._is_headless = bv is None # Track if we need to close it later
 
     def __enter__(self):
-        logger.info(f"Loading binary into Binary Ninja: {self.target_path}")
+        # If we were passed an open BinaryView from the GUI, just return self
+        if not self._is_headless:
+            return self
+
+        # Otherwise, load it headlessly like we used to
+        logger.info(f"Loading binary headlessly: {self.target_path}")
         try:
             self.bv = bn.load(self.target_path, update_analysis=True)
         except Exception as e:
@@ -32,7 +39,9 @@ class MalwareAnalyzer:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        if self.bv:
+        # Only close the file if we opened it headlessly. 
+        # If the GUI is using it, we don't want to crash the user's session!
+        if self._is_headless and self.bv:
             self.bv.file.close()
 
     def extract_strings(self) -> List[str]:

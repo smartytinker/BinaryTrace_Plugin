@@ -6,12 +6,20 @@ import hashlib
 import os
 import logging
 import requests
-import yara
 from typing import List, Dict
 from config import THREAT_INTEL_CONFIG
 from models import ThreatIntelResult, YaraMatch
 
 logger = logging.getLogger(__name__)
+
+# --- GRACEFUL IMPORT FOR YARA ---
+try:
+    import yara
+    HAS_YARA = True
+except ImportError:
+    HAS_YARA = False
+    logger.warning("YARA module not found. Local YARA scanning will be disabled in the UI.")
+# --------------------------------
 
 class ThreatIntelEngine:
     def __init__(self, target_path: str):
@@ -35,7 +43,7 @@ class ThreatIntelEngine:
     def check_virustotal(self, file_hash: str) -> tuple:
         """Queries VirusTotal for the file hash."""
         if not self.vt_key:
-            return 0, 0 # Skip if no key
+            return 0, 0 
 
         url = f"https://www.virustotal.com/api/v3/files/{file_hash}"
         headers = {"x-apikey": self.vt_key}
@@ -48,7 +56,7 @@ class ThreatIntelEngine:
                 total = sum(stats.values())
                 return malicious, total
             elif response.status_code == 404:
-                return 0, 0 # File not found on VT
+                return 0, 0 
             else:
                 logger.warning(f"VT API Error: {response.status_code}")
         except Exception as e:
@@ -76,7 +84,7 @@ class ThreatIntelEngine:
                 if response.status_code == 200:
                     data = response.json().get("data", {})
                     score = data.get("abuseConfidenceScore", 0)
-                    if score > 10: # Only flag if confidence is > 10%
+                    if score > 10: 
                         malicious_ips[ip] = score
             except Exception as e:
                 logger.error(f"AbuseIPDB Request failed for {ip}: {e}")
@@ -86,14 +94,26 @@ class ThreatIntelEngine:
     def run_yara_scans(self) -> List[YaraMatch]:
         """Compiles and runs local YARA rules against the binary."""
         matches = []
-        if not os.path.exists(self.yara_dir):
-            os.makedirs(self.yara_dir) # Create the folder if it doesn't exist
+        
+        # If YARA failed to import earlier, just return an empty list safely
+        if not HAS_YARA:
+            return matches
+
+        # Ensure we look in the plugin's directory for the yara_rules folder
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        full_yara_dir = os.path.join(current_dir, self.yara_dir)
+
+        if not os.path.exists(full_yara_dir):
+            try:
+                os.makedirs(full_yara_dir)
+            except:
+                pass
             return matches
 
         rule_files = {}
-        for filename in os.listdir(self.yara_dir):
+        for filename in os.listdir(full_yara_dir):
             if filename.endswith(".yar") or filename.endswith(".yara"):
-                rule_files[filename] = os.path.join(self.yara_dir, filename)
+                rule_files[filename] = os.path.join(full_yara_dir, filename)
 
         if not rule_files:
             return matches
@@ -114,16 +134,9 @@ class ThreatIntelEngine:
 
     def gather_intelligence(self, ips: List[str]) -> ThreatIntelResult:
         """Runs all Threat Intel modules."""
-        logger.info("Hashing file...")
         file_hash = self.get_file_hash()
-        
-        logger.info(f"Checking VirusTotal for {file_hash}...")
         vt_positives, vt_total = self.check_virustotal(file_hash)
-        
-        logger.info("Checking AbuseIPDB for extracted IPs...")
         bad_ips = self.check_abuseipdb(ips)
-        
-        logger.info("Running local YARA scans...")
         yara_matches = self.run_yara_scans()
 
         return ThreatIntelResult(

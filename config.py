@@ -22,14 +22,18 @@ XOR_SEARCH_PATTERNS = [
 
 def load_rules(filepath: str = "rules.json") -> dict:
     """Loads external analysis rules and signatures."""
-    if not os.path.exists(filepath):
-        raise ConfigurationError(f"Missing configuration file: {filepath}")
+    # Force Python to look in the exact directory where config.py lives
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    full_path = os.path.join(current_dir, filepath)
+
+    if not os.path.exists(full_path):
+        raise ConfigurationError(f"Missing configuration file: {full_path}")
     
     try:
-        with open(filepath, "r") as f:
+        with open(full_path, "r") as f:
             return json.load(f)
     except json.JSONDecodeError as e:
-        raise ConfigurationError(f"Malformed JSON in {filepath}: {e}")
+        raise ConfigurationError(f"Malformed JSON in {full_path}: {e}")
 
 # Load the rules globally so analyzer.py can still import them easily
 try:
@@ -37,11 +41,10 @@ try:
     API_CATEGORIES = _rules.get("api_categories", {})
     CATEGORY_SCORES = _rules.get("category_scores", {})
     KNOWN_PACKERS = _rules.get("known_packers", {})
-    ANTI_DEBUG_APIS = _rules.get("anti_debug_apis", [])    # NEW
-    ANTI_VM_STRINGS = _rules.get("anti_vm_strings", [])    # NEW
+    ANTI_DEBUG_APIS = _rules.get("anti_debug_apis", [])
+    ANTI_VM_STRINGS = _rules.get("anti_vm_strings", [])
     MITRE_MAPPING = _rules.get("mitre_mapping", {})
     THREAT_INTEL_CONFIG = _rules.get("threat_intel", {})
 except ConfigurationError as e:
-    # If config fails to load, we crash early before doing any analysis
-    print(f"CRITICAL: {e}")
-    exit(1)
+    # Safely abort without crashing Binary Ninja
+    raise RuntimeError(f"CRITICAL CONFIG ERROR: {e}")

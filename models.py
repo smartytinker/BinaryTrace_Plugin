@@ -3,7 +3,7 @@ models.py
 Dataclasses representing the strictly typed schema for analysis results.
 """
 from dataclasses import dataclass, asdict
-from typing import List
+from typing import List, Dict
 
 @dataclass
 class IOCs:
@@ -43,7 +43,7 @@ class Capability:
     technique_id: str
     tactic: str
     description: str
-    evidence: List[str]  # e.g., the specific APIs that triggered this capability
+    evidence: List[str]
 
 @dataclass
 class StringReference:
@@ -72,29 +72,10 @@ class ThreatIntelResult:
     file_hash: str
     vt_positives: int
     vt_total: int
-    malicious_ips: Dict[str, int] # IP -> Confidence Score
+    malicious_ips: Dict[str, int]
     yara_matches: List[YaraMatch]
 
-@dataclass
-class AnalysisReport:
-    file: str
-    risk_assessment: RiskAssessment
-    iocs: IOCs
-    obfuscation: Obfuscation
-    suspicious_imports: List[SuspiciousImport]
-    # NEW FIELDS:
-    sections: List[SectionInfo] 
-    packer_info: PackerDetection
-    evasion_info: EvasionInfo    # NEW FIELD
-    capabilities: List[Capability]    # NEW FIELD
-    top_suspicious_functions: List[InterestingFunction] # NEW FIELD
-    ioc_references: List[StringReference]
-    threat_intel: ThreatIntelResult
-
-    def to_dict(self) -> dict:
-        """Converts the dataclass hierarchy into a JSON-serializable dictionary."""
-        return asdict(self)
-
+# Moved these two up!
 @dataclass
 class SectionInfo:
     name: str
@@ -107,3 +88,23 @@ class PackerDetection:
     is_packed: bool
     suspicious_sections: List[str]
     suspected_packer: str
+
+# AnalysisReport goes last so it can see everything defined above it
+@dataclass
+class AnalysisReport:
+    file: str
+    risk_assessment: RiskAssessment
+    iocs: IOCs
+    obfuscation: Obfuscation
+    suspicious_imports: List[SuspiciousImport]
+    sections: List[SectionInfo] 
+    packer_info: PackerDetection
+    evasion_info: EvasionInfo
+    capabilities: List[Capability]
+    top_suspicious_functions: List[InterestingFunction]
+    ioc_references: List[StringReference]
+    threat_intel: ThreatIntelResult
+
+    def to_dict(self) -> dict:
+        """Converts the dataclass hierarchy into a JSON-serializable dictionary."""
+        return asdict(self)
