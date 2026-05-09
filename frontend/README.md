@@ -1,4 +1,4 @@
-# BinaryWatch – Frontend
+# BinaryTrace – Frontend
 
 Production-ready report viewer UI for the FastAPI backend in `api.py`.
 

@@ -103,7 +103,7 @@ def format_html_report(report) -> str:
     return html
 def run_plugin_analysis(bv: bn.BinaryView):
     """The function triggered when the user clicks the plugin button."""
-    bn.show_message_box("Malware Analyzer", "Analysis started! Check the log for progress.", bn.MessageBoxButtonSet.OKButtonSet, bn.MessageBoxIcon.InformationIcon)
+    bn.show_message_box("BinaryTrace", "Analysis started! Check the log for progress.", bn.MessageBoxButtonSet.OKButtonSet, bn.MessageBoxIcon.InformationIcon)
     
     try:
         db = DatabaseManager()
@@ -145,13 +145,13 @@ def run_plugin_analysis(bv: bn.BinaryView):
             bv.show_html_report(f"Analysis: {bv.file.filename}", html_content)
             
     except Exception as e:
-        bn.log_error(f"Malware Analyzer Plugin crashed: {e}")
+        bn.log_error(f"BinaryTrace Plugin crashed: {e}")
         bn.show_message_box("Error", f"Analysis failed: {e}", bn.MessageBoxButtonSet.OKButtonSet, bn.MessageBoxIcon.ErrorIcon)
 
 
 # Register the command in the Binary Ninja UI menu
 bn.PluginCommand.register(
-    "Malware Analyzer \\ Run Full Triage",
+    "BinaryTrace \\ Run Full Triage",
     "Runs the automated malware triage engine and generates a report.",
     run_plugin_analysis
 )

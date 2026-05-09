@@ -63,7 +63,7 @@ def process_file(filepath: str, db: DatabaseManager, output_dir: str = None) -> 
     return report_dict
 
 def main():
-    parser = argparse.ArgumentParser(description="Enterprise Malware Triage Engine")
+    parser = argparse.ArgumentParser(description="BinaryTrace Enterprise Engine")
     parser.add_argument("target", help="Path to a binary file OR a directory of binaries")
     parser.add_argument("-o", "--outdir", help="Directory to save JSON reports", type=str)
     parser.add_argument("--debug", help="Enable debug logging", action="store_true")

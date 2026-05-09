@@ -14,7 +14,7 @@ export function AppShell() {
               <Shield className="h-5 w-5 text-cyan-300" />
             </div>
             <div className="leading-tight">
-              <div className="text-sm font-semibold tracking-wide text-slate-100">BinaryWatch</div>
+              <div className="text-sm font-semibold tracking-wide text-slate-100">BinaryTrace</div>
               <div className="text-xs text-slate-400">Binary analysis report viewer</div>
             </div>
           </Link>
