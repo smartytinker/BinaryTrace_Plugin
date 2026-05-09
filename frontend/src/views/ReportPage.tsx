@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { AlertTriangle, ArrowLeft, CheckCircle2, Copy, Network, ShieldAlert } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { ApiError, getIocs, getReport } from '@/lib/api'
+import { CallGraph } from '@/ui/CallGraph'
 
 function isSha256(input: string) {
   return /^[a-f0-9]{64}$/i.test(input)
@@ -293,6 +294,9 @@ export function ReportPage() {
           </section>
 
           <section className="grid gap-4">
+            <Card title="Interactive Call Graph">
+              <CallGraph functions={report.top_suspicious_functions} />
+            </Card>
             <Card title="Top suspicious functions">
               {report.top_suspicious_functions.length === 0 ? (
                 <Empty>No functions ranked.</Empty>

@@ -85,3 +85,13 @@ export function getIocs(fileHash: string) {
   return apiGet<IocsResponse>(`/iocs/${encodeURIComponent(fileHash)}`)
 }
 
+export type DashboardStats = {
+  total_samples: number
+  average_risk: number
+  critical_samples: number
+  recent_activity: { file_hash: string; file_name: string; risk_score: number; timestamp: string }[]
+}
+
+export function getStats() {
+  return apiGet<DashboardStats>('/stats')
+}
