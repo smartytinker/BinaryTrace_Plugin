@@ -116,8 +116,8 @@ def run_plugin_analysis(bv: bn.BinaryView):
             cached_report = db.get_report(file_hash)
             
             if cached_report:
-                markdown_content = format_markdown_report(cached_report)
-                bv.show_markdown_report(f"Analysis (Cached): {bv.file.filename}", markdown_content)
+                html_content = format_html_report(cached_report) # <--- Fixed!
+                bv.show_html_report(f"Analysis (Cached): {bv.file.filename}", html_content) # <--- Fixed!
                 return  # We are done! Skip the rest of the analysis.
 
         # 2. CACHE MISS: Run the full heavy analysis
