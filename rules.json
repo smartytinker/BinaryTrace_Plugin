@@ -1,0 +1,77 @@
+{
+    "api_categories": {
+        "Keylogging": ["GetAsyncKeyState", "SetWindowsHookEx"],
+        "Process Injection": ["CreateRemoteThread", "WriteProcessMemory", "VirtualAllocEx", "OpenProcess"],
+        "Networking": ["InternetOpen", "InternetOpenUrl", "URLDownloadToFile", "socket", "connect"],
+        "Persistence": ["RegSetValueEx", "CreateService"],
+        "Command Execution": ["WinExec", "ShellExecute", "CreateProcess"],
+        "Cryptography": ["CryptAcquireContext", "CryptEncrypt", "CryptDecrypt"]
+    },
+    "category_scores": {
+        "Networking": 10,
+        "Command Execution": 25,
+        "Process Injection": 30,
+        "Persistence": 20,
+        "Keylogging": 35,
+        "Cryptography": 15
+    },
+    "known_packers": {
+        "UPX": ["UPX0", "UPX1", "UPX2"],
+        "ASPack": [".aspack", ".adata"],
+        "Themida": [".themida"],
+        "VMProtect": [".vmp0", ".vmp1", ".vmp2"],
+        "MPress": [".mpress1", ".mpress2"]
+    },
+    "anti_debug_apis": [
+        "IsDebuggerPresent", 
+        "CheckRemoteDebuggerPresent", 
+        "OutputDebugString", 
+        "SetUnhandledExceptionFilter",
+        "NtQueryInformationProcess"
+    ],
+    "anti_vm_strings": [
+        "VMware", 
+        "VBox", 
+        "VirtualBox", 
+        "qemu", 
+        "vboxguest",
+        "vmtoolsd"
+    ],
+    "mitre_mapping": {
+        "Keylogging": {
+            "id": "T1056", 
+            "tactic": "Credential Access", 
+            "description": "Input Capture: Keylogging"
+        },
+        "Process Injection": {
+            "id": "T1055", 
+            "tactic": "Defense Evasion, Privilege Escalation", 
+            "description": "Process Injection"
+        },
+        "Networking": {
+            "id": "T1071", 
+            "tactic": "Command and Control", 
+            "description": "Application Layer Protocol"
+        },
+        "Persistence": {
+            "id": "T1547", 
+            "tactic": "Persistence", 
+            "description": "Boot or Logon Autostart Execution"
+        },
+        "Command Execution": {
+            "id": "T1059", 
+            "tactic": "Execution", 
+            "description": "Command and Scripting Interpreter"
+        },
+        "Cryptography": {
+            "id": "T1027", 
+            "tactic": "Defense Evasion", 
+            "description": "Obfuscated Files or Information"
+        }
+    },
+    "threat_intel": {
+        "vt_api_key": "",
+        "abuseipdb_api_key": "",
+        "yara_rules_dir": "./yara_rules"
+    }
+}
