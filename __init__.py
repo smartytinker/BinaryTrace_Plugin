@@ -5,6 +5,7 @@ Binary Ninja UI Plugin integration for the Malware Analyzer.
 import binaryninja as bn
 from analyzer import MalwareAnalyzer
 from threat_intel import ThreatIntelEngine
+from database import DatabaseManager
 
 def format_markdown_report(report) -> str:
     """Converts the typed AnalysisReport into a beautiful Markdown dashboard."""
@@ -59,24 +60,42 @@ def format_markdown_report(report) -> str:
 
 def run_plugin_analysis(bv: bn.BinaryView):
     """The function triggered when the user clicks the plugin button."""
-    bn.show_message_box("Malware Analyzer", "Analysis started! Check the log for progress, a report will open shortly.", bn.MessageBoxButtonSet.OKButtonSet, bn.MessageBoxIcon.InformationIcon)
+    bn.show_message_box("Malware Analyzer", "Analysis started! Check the log for progress.", bn.MessageBoxButtonSet.OKButtonSet, bn.MessageBoxIcon.InformationIcon)
     
     try:
-        # Use our analyzer, but pass it the open GUI view!
+        db = DatabaseManager()
+        ti_engine = ThreatIntelEngine(bv.file.filename)
+        
+        # 1. EARLY EXIT: Check if we already analyzed this file!
+        file_hash = ti_engine.get_file_hash()
+        if db.sample_exists(file_hash):
+            bn.log_info(f"CACHE HIT: Loading existing report for {file_hash}")
+            cached_report = db.get_report(file_hash)
+            
+            if cached_report:
+                markdown_content = format_markdown_report(cached_report)
+                bv.show_markdown_report(f"Analysis (Cached): {bv.file.filename}", markdown_content)
+                return  # We are done! Skip the rest of the analysis.
+
+        # 2. CACHE MISS: Run the full heavy analysis
+        bn.log_info(f"CACHE MISS: Running full triage for {file_hash}")
         with MalwareAnalyzer(bv=bv) as analyzer:
             
-            # Since we are in the GUI, we need to extract strings & IPs manually to pass to Threat Intel
             strings = analyzer.extract_strings()
-            urls, ips = analyzer.filter_iocs(strings) if hasattr(analyzer, 'filter_iocs') else ([], []) # Fallback if imported differently
+            urls, ips = analyzer.filter_iocs(strings) if hasattr(analyzer, 'filter_iocs') else ([], [])
 
             # Gather intel
-            ti_engine = ThreatIntelEngine(bv.file.filename)
             threat_intel = ti_engine.gather_intelligence(ips)
 
             # Run full analysis
             report = analyzer.run_full_analysis()
-            # Override threat intel since it was gathered separately for GUI
             report.threat_intel = threat_intel 
+
+            # Save to the enterprise database
+            try:
+                db.save_report(report)
+            except Exception as e:
+                bn.log_error(f"Database save failed: {e}")
 
             # Format and show!
             markdown_content = format_markdown_report(report)

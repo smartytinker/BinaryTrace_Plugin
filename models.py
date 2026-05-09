@@ -108,3 +108,30 @@ class AnalysisReport:
     def to_dict(self) -> dict:
         """Converts the dataclass hierarchy into a JSON-serializable dictionary."""
         return asdict(self)
+    
+    @classmethod
+    def from_dict(cls, data: dict):
+        """Reconstructs the AnalysisReport object from a database JSON dictionary."""
+        return cls(
+            file=data.get("file", "Unknown"),
+            risk_assessment=RiskAssessment(**data.get("risk_assessment", {})),
+            iocs=IOCs(**data.get("iocs", {})),
+            obfuscation=Obfuscation(
+                base64_candidates_count=data.get("obfuscation", {}).get("base64_candidates_count", 0),
+                xor_decoded=[XorHit(**x) for x in data.get("obfuscation", {}).get("xor_decoded", [])]
+            ),
+            suspicious_imports=[SuspiciousImport(**x) for x in data.get("suspicious_imports", [])],
+            sections=[SectionInfo(**x) for x in data.get("sections", [])],
+            packer_info=PackerDetection(**data.get("packer_info", {})),
+            evasion_info=EvasionInfo(**data.get("evasion_info", {})),
+            capabilities=[Capability(**x) for x in data.get("capabilities", [])],
+            top_suspicious_functions=[InterestingFunction(**x) for x in data.get("top_suspicious_functions", [])],
+            ioc_references=[StringReference(**x) for x in data.get("ioc_references", [])],
+            threat_intel=ThreatIntelResult(
+                file_hash=data.get("threat_intel", {}).get("file_hash", ""),
+                vt_positives=data.get("threat_intel", {}).get("vt_positives", 0),
+                vt_total=data.get("threat_intel", {}).get("vt_total", 0),
+                malicious_ips=data.get("threat_intel", {}).get("malicious_ips", {}),
+                yara_matches=[YaraMatch(**x) for x in data.get("threat_intel", {}).get("yara_matches", [])]
+            )
+        )
