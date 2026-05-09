@@ -21,3 +21,23 @@ __pycache__/
 .venv/
 venv/
 env/
+
+# Node
+node_modules/
+frontend/node_modules/
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.env
+
+# Binary Ninja
+*.bndb
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

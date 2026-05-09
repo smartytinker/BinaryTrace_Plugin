@@ -3,6 +3,7 @@ api.py
 Enterprise REST API with a styled landing page and custom Swagger UI.
 """
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.openapi.docs import get_swagger_ui_html
 from database import DatabaseManager
@@ -10,7 +11,7 @@ import uvicorn
 
 # 1. Professional API Metadata
 app = FastAPI(
-    title="TriageEngine Pro",
+    title="BinaryWatch",
     description="""
     **Enterprise Automated Malware Analysis API.**
     
@@ -27,6 +28,19 @@ app = FastAPI(
 )
 db = DatabaseManager()
 
+# Allow the local frontend (Vite dev server) to call the API.
+# In production, lock this down to your real domains / reverse proxy.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://127.0.0.1:5173",
+        "http://localhost:5173",
+    ],
+    allow_credentials=False,
+    allow_methods=["GET", "OPTIONS"],
+    allow_headers=["*"],
+)
+
 # 2. Sleek Tailwind CSS Landing Page for the Root URL
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
 def read_root():
@@ -37,14 +51,14 @@ def read_root():
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>TriageEngine Pro API</title>
+        <title>BinaryWatch API</title>
         <script src="https://cdn.tailwindcss.com"></script>
     </head>
     <body class="bg-gray-900 text-gray-100 font-sans antialiased flex items-center justify-center h-screen">
         <div class="max-w-2xl bg-gray-800 p-10 rounded-lg shadow-2xl border border-gray-700">
             <div class="flex items-center mb-6">
                 <svg class="w-10 h-10 text-blue-500 mr-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
-                <h1 class="text-4xl font-bold tracking-tight text-white">TriageEngine Pro</h1>
+                <h1 class="text-4xl font-bold tracking-tight text-white">BinaryWatch</h1>
             </div>
             
             <p class="text-lg text-gray-400 mb-8">

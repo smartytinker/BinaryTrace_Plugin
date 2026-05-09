@@ -1,0 +1,12 @@
+@import "tailwindcss";
+
+/* App-wide primitives */
+:root {
+  color-scheme: dark;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.35) rgba(2, 6, 23, 0.6);
+}
+
